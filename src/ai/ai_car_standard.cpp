@@ -29,6 +29,10 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 //used to calculate brake value
 #define MAX_SPEED_DIFF 6.0f
@@ -50,6 +54,8 @@
 #define THROTTLE_RATE_LIMIT 0.1f
 
 static const float rad2deg = 180 / M_PI;
+char *path_sim2mpc = "/tmp/pipe_sim2mpc";
+// int fd_sim2mpc;
 
 AiCar * AiCarStandardFactory::Create(unsigned carid, float difficulty)
 {
@@ -61,6 +67,10 @@ AiCarStandard::AiCarStandard(unsigned new_carid, float new_difficulty) :
 	last_patch(NULL)
 {
 	// ctor
+    psi_last = 0;
+
+    // mkfifo(path_sim2mpc, 0666);
+    // fd_sim2mpc = open(path_sim2mpc, O_WRONLY);
 }
 
 AiCarStandard::~AiCarStandard()
@@ -76,7 +86,8 @@ AiCarStandard::~AiCarStandard()
 		topnode.GetDrawList().normal_noblend.erase(steerdraw);
 	}
 #endif
-    psi_last = 0;
+    //unlink(path_sim2mpc);
+    //close(fd_sim2mpc);
 }
 
 //note that rate_limit_neg should be positive, it gets inverted inside the function
@@ -103,7 +114,9 @@ float AiCarStandard::GetHorizontalDistanceAlongPatch2(const RoadPatch & patch, V
 void AiCarStandard::Update(float dt, const CarDynamics cars[], const unsigned cars_num)
 {
     float d, v, delta, beta, psi, w_z;  // state
+    float state[6];
     float w_delta, eta, phi;  // control
+    float control[3];
 
     // Calculate the current state
     const CarDynamics & car = cars[carid];
@@ -135,13 +148,6 @@ void AiCarStandard::Update(float dt, const CarDynamics cars[], const unsigned ca
                                                      car.GetVelocity()));
         float v_theta = atan2(vel_rel[1], vel_rel[0]) - M_PI / 2.0f;
         psi = v_theta + beta;
-
-        std::cout << "d: " << d
-                  << " v: " << v
-                  << " delta: " << 180.0f * delta / M_PI
-                  << " beta: " << 180.0f * beta / M_PI
-                  << " psi: " << 180.0f * psi / M_PI
-                  << " w_z: " << w_z << std::endl;
     } else {
         d = 0;
         v = 0;
@@ -149,8 +155,34 @@ void AiCarStandard::Update(float dt, const CarDynamics cars[], const unsigned ca
         beta = 0;
         psi = 0;
         w_z = 0;
-        std::cout << "no racing line!" << std::endl;
     }
+
+    // Write state to pipe
+    state[0] = d;
+    state[1] = v;
+    state[2] = delta;
+    state[3] = beta;
+    state[4] = psi;
+    state[5] = w_z;
+    std::cout << "Writing to pipe." << std::endl;
+    int fd_sim2mpc = open(path_sim2mpc, O_WRONLY);
+    write(fd_sim2mpc, state, sizeof(state));
+    close(fd_sim2mpc);
+
+    // Read control from pipe
+    // TODO
+    /*
+    w_delta = control[0];
+    eta = control[1];
+    phi = control[2];
+    */
+
+    // Apply control
+    /*
+    inputs[CarInput::THROTTLE] = phi;
+    inputs[CarInput::BRAKE] = eta;
+    inputs[CarInput::STEER_RIGHT] = w_delta;
+    */
 
 	AnalyzeOthers(dt, cars, cars_num);
 	UpdateGasBrake(cars[carid]);
