@@ -55,7 +55,7 @@
 
 static const float rad2deg = 180 / M_PI;
 char *path_sim2mpc = "/tmp/pipe_sim2mpc";
-// int fd_sim2mpc;
+char *path_mpc2sim = "/tmp/pipe_mpc2sim";
 
 AiCar * AiCarStandardFactory::Create(unsigned carid, float difficulty)
 {
@@ -127,8 +127,9 @@ void AiCarStandard::Update(float dt, const CarDynamics cars[], const unsigned ca
         const float hdist2 = GetHorizontalDistanceAlongPatch2(*cur_patch, mypos);
         d = -(hdist1 + hdist2);
 
-        const Vec3 car_velocity = ToMathVector<float>(car.GetVelocity());
-        v = car_velocity.Magnitude();
+		auto & wc = car.GetWheelContact(WheelPosition(3));
+		Vec3 car_velocity = ToMathVector<float>(car.GetVelocity());
+        v = car.GetSpeed();
 
         delta = -inputs[CarInput::STEER_RIGHT] * car.GetMaxSteeringAngle() * M_PI / 180.0f;
         beta = -(car.tire_state[FRONT_LEFT].slip_angle + car.tire_state[FRONT_RIGHT].slip_angle) / 2.0;
@@ -148,6 +149,7 @@ void AiCarStandard::Update(float dt, const CarDynamics cars[], const unsigned ca
                                                      car.GetVelocity()));
         float v_theta = atan2(vel_rel[1], vel_rel[0]) - M_PI / 2.0f;
         psi = v_theta + beta;
+        // psi = beta;
     } else {
         d = 0;
         v = 0;
@@ -170,20 +172,21 @@ void AiCarStandard::Update(float dt, const CarDynamics cars[], const unsigned ca
     close(fd_sim2mpc);
 
     // Read control from pipe
-    // TODO
-    /*
+    int fd_mpc2sim = open(path_mpc2sim, O_RDONLY);
+    read(fd_mpc2sim, control, sizeof(control));
+    close(fd_mpc2sim);
     w_delta = control[0];
     eta = control[1];
     phi = control[2];
-    */
 
-    // Apply control
-    /*
-    inputs[CarInput::THROTTLE] = phi;
-    inputs[CarInput::BRAKE] = eta;
-    inputs[CarInput::STEER_RIGHT] = w_delta;
-    */
+    // Apply control (TODO jk!)
+    if (w_delta != 0 || eta != 0 || phi != 0) {
+        inputs[CarInput::THROTTLE] = phi;
+        inputs[CarInput::BRAKE] = eta;
+        inputs[CarInput::STEER_RIGHT] = w_delta;
+    }
 
+    // TODO rn inputs change above does nothing!
 	AnalyzeOthers(dt, cars, cars_num);
 	UpdateGasBrake(cars[carid]);
 	UpdateSteer(cars[carid]);
