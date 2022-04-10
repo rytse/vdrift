@@ -66,6 +66,11 @@ public:
 		return track_radius;
 	}
 
+    float GetTrackCurvature() const
+    {
+        return track_curvature;
+    }
+
 	float GetDistFromStart() const
 	{
 		return dist_from_start;

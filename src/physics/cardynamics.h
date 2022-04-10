@@ -185,6 +185,8 @@ public:
 		int partId1,
 		int index1);
 
+	CarTireState tire_state[WHEEL_COUNT];
+
 protected:
 	enum DiffEnum { DIFF_FRONT, DIFF_REAR, DIFF_CENTER, DIFF_COUNT };
 	enum DriveEnum { NONE, FWD, RWD, AWD };
@@ -207,7 +209,6 @@ protected:
 	CarWheel wheel[WHEEL_COUNT];
 	CarTire tire[WHEEL_COUNT];
 	CarTireSlipLUT tire_slip_lut[WHEEL_COUNT];
-	CarTireState tire_state[WHEEL_COUNT];
 	CarSuspension suspension[WHEEL_COUNT];
 	WheelConstraint wheel_constraint[WHEEL_COUNT];
 	Driveline driveline;

@@ -631,6 +631,14 @@ float AiCarExperimental::GetHorizontalDistanceAlongPatch(const RoadPatch & patch
 	return patchwidthvector.Normalize().dot(carposition-leftside);
 }
 
+float AiCarExperimental::GetHorizontalDistanceAlongPatch2(const RoadPatch & patch, Vec3 carposition)
+{
+	Vec3 leftside = (patch.GetPoint(0,0) + patch.GetPoint(3,0))*0.5f;
+	Vec3 rightside = (patch.GetPoint(0,3) + patch.GetPoint(3,3))*0.5f;
+	Vec3 patchwidthvector = rightside - leftside;
+	return patchwidthvector.Normalize().dot(carposition-rightside);
+}
+
 float AiCarExperimental::RampBetween(float val, float startat, float endat)
 {
 	assert(endat > startat);

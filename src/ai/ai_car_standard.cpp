@@ -76,6 +76,7 @@ AiCarStandard::~AiCarStandard()
 		topnode.GetDrawList().normal_noblend.erase(steerdraw);
 	}
 #endif
+    psi_last = 0;
 }
 
 //note that rate_limit_neg should be positive, it gets inverted inside the function
@@ -89,8 +90,68 @@ float AiCarStandard::RateLimit(float old_value, float new_value, float rate_limi
 		return new_value;
 }
 
+/*
+float AiCarStandard::GetHorizontalDistanceAlongPatch2(const RoadPatch & patch, Vec3 carposition)
+{
+	Vec3 leftside = (patch.GetPoint(0,0) + patch.GetPoint(3,0))*0.5f;
+	Vec3 rightside = (patch.GetPoint(0,3) + patch.GetPoint(3,3))*0.5f;
+	Vec3 patchwidthvector = rightside - leftside;
+	return patchwidthvector.Normalize().dot(carposition-leftside);
+}
+*/
+
 void AiCarStandard::Update(float dt, const CarDynamics cars[], const unsigned cars_num)
 {
+    float d, v, delta, beta, psi, w_z;  // state
+    float w_delta, eta, phi;  // control
+
+    // Calculate the current state
+    const CarDynamics & car = cars[carid];
+    const RoadPatch *cur_patch = GetCurrentPatch(car);
+    if (cur_patch != NULL) {
+        Vec3 mypos = ToMathVector<float>(car.GetCenterOfMass());
+        const float hdist1 = GetHorizontalDistanceAlongPatch(*cur_patch, mypos);
+        const float hdist2 = GetHorizontalDistanceAlongPatch2(*cur_patch, mypos);
+        d = -(hdist1 + hdist2);
+
+        const Vec3 car_velocity = ToMathVector<float>(car.GetVelocity());
+        v = car_velocity.Magnitude();
+
+        delta = -inputs[CarInput::STEER_RIGHT] * car.GetMaxSteeringAngle() * M_PI / 180.0f;
+        beta = -(car.tire_state[FRONT_LEFT].slip_angle + car.tire_state[FRONT_RIGHT].slip_angle) / 2.0;
+
+        Vec3 leftside = (cur_patch->GetPoint(0,0) + cur_patch->GetPoint(3,0))*0.5f;
+        Vec3 rightside = (cur_patch->GetPoint(0,3) + cur_patch->GetPoint(3,3))*0.5f;
+        Vec3 vel_global = ToMathVector<float>(car.GetVelocity());
+        Vec3 diff = leftside - rightside;
+        float asinin = vel_global.cross(diff).Magnitude() / vel_global.Magnitude() / diff.Magnitude();
+        asinin = std::min(1.0f, asinin);
+        asinin = std::max(-1.0f, asinin);
+        psi = asin(asinin) - M_PI / 2.0f;
+        w_z = psi - psi_last;
+        psi_last = psi;
+
+        Vec3 vel_rel = ToMathVector<float>(quatRotate(car.GetOrientation().inverse(),
+                                                     car.GetVelocity()));
+        float v_theta = atan2(vel_rel[1], vel_rel[0]) - M_PI / 2.0f;
+        psi = v_theta + beta;
+
+        std::cout << "d: " << d
+                  << " v: " << v
+                  << " delta: " << 180.0f * delta / M_PI
+                  << " beta: " << 180.0f * beta / M_PI
+                  << " psi: " << 180.0f * psi / M_PI
+                  << " w_z: " << w_z << std::endl;
+    } else {
+        d = 0;
+        v = 0;
+        delta = 0;
+        beta = 0;
+        psi = 0;
+        w_z = 0;
+        std::cout << "no racing line!" << std::endl;
+    }
+
 	AnalyzeOthers(dt, cars, cars_num);
 	UpdateGasBrake(cars[carid]);
 	UpdateSteer(cars[carid]);
@@ -514,6 +575,14 @@ float AiCarStandard::GetHorizontalDistanceAlongPatch(const RoadPatch & patch, Ve
 	Vec3 rightside = (patch.GetPoint(0,3) + patch.GetPoint(3,3))*0.5f;
 	Vec3 patchwidthvector = rightside - leftside;
 	return patchwidthvector.Normalize().dot(carposition-leftside);
+}
+
+float AiCarStandard::GetHorizontalDistanceAlongPatch2(const RoadPatch & patch, Vec3 carposition)
+{
+	Vec3 leftside = (patch.GetPoint(0,0) + patch.GetPoint(3,0))*0.5f;
+	Vec3 rightside = (patch.GetPoint(0,3) + patch.GetPoint(3,3))*0.5f;
+	Vec3 patchwidthvector = rightside - leftside;
+	return patchwidthvector.Normalize().dot(carposition-rightside);
 }
 
 float AiCarStandard::RampBetween(float val, float startat, float endat)

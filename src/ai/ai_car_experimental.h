@@ -103,6 +103,7 @@ private:
 	static void TrimPatch(RoadPatch & patch, float trimleft_front, float trimright_front, float trimleft_back, float trimright_back);
 
 	static float GetHorizontalDistanceAlongPatch(const RoadPatch & patch, Vec3 carposition);
+	static float GetHorizontalDistanceAlongPatch2(const RoadPatch & patch, Vec3 carposition);
 
 	static float RampBetween(float val, float startat, float endat);
 
